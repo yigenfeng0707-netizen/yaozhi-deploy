@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>窑智 · 陶瓷工艺 AI 大脑</title>
+<link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="logo">窑</div>
+    <div class="brand-txt">
+      <h1>窑智 · 陶瓷工艺 AI 大脑</h1>
+      <p>釉面质检 · 窑温孪生 · 纹样生成　|　离线可运行，单机 CPU</p>
+    </div>
+  </div>
+  <div class="top-right">
+    <div class="status" id="statusBadge">
+      <i class="dot"></i><span id="statusText">连接中</span>
+    </div>
+    <button class="btn btn-loop" id="btnDemo">▶ 3 分钟闭环演示</button>
+  </div>
+</header>
+
+<nav class="tabs">
+  <button class="tab active" data-screen="s1"><b>01</b> 釉面质检</button>
+  <button class="tab" data-screen="s2"><b>02</b> 窑温孪生</button>
+  <button class="tab" data-screen="s3"><b>03</b> 纹样生成</button>
+  <div class="tab-spacer"></div>
+  <div class="tab-note" id="modelNote">模型 —</div>
+</nav>
+
+<main>
+
+<!-- ================= 屏 1：釉面质检 ================= -->
+<section class="screen active" id="s1">
+  <div class="grid-2">
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2>样本输入</h2>
+        <span class="hint">上传实拍图，或直接调用合成样本</span>
+      </div>
+
+      <div class="drop" id="drop">
+        <input type="file" id="fileInput" accept="image/*" hidden />
+        <div class="drop-ico">＋</div>
+        <p class="drop-t">拖入图片 / 点击选择</p>
+        <p class="drop-s">良品与缺陷均可；支持 png / jpg</p>
+      </div>
+
+      <div class="sub-head">合成样本</div>
+      <div class="chips" id="sampleChips">
+        <button class="chip" data-kind="正常">正常</button>
+        <button class="chip" data-kind="釉泡">釉泡</button>
+        <button class="chip" data-kind="针孔">针孔</button>
+        <button class="chip" data-kind="裂纹">裂纹</button>
+        <button class="chip" data-kind="落渣">落渣</button>
+        <button class="chip" data-kind="色差">色差</button>
+      </div>
+
+      <div class="stage" id="stage1">
+        <img id="imgSrc" alt="样本" />
+        <div class="stage-tag" id="imgTag">等待输入</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2>检测结果</h2>
+        <span class="hint" id="latency">—</span>
+      </div>
+
+      <div class="verdict-row">
+        <div class="verdict" id="verdict">待检</div>
+        <div class="score-wrap">
+          <div class="score-label">异常显著度</div>
+          <div class="score-bar"><span id="scoreFill"></span><i class="score-thr"></i></div>
+          <div class="score-val" id="scoreVal">0.0</div>
+        </div>
+      </div>
+
+      <div class="kv-grid">
+        <div class="kv"><label>缺陷类型</label><b id="rType">—</b></div>
+        <div class="kv"><label>原始比值</label><b id="rRatio">—</b></div>
+        <div class="kv"><label>区域数</label><b id="rCount">0</b></div>
+        <div class="kv"><label>图像尺寸</label><b id="rSize">—</b></div>
+      </div>
+
+      <div class="block">
+        <h3>成因判定</h3>
+        <p id="rCause">—</p>
+      </div>
+      <div class="block accent">
+        <h3>工艺对策</h3>
+        <p id="rAction">—</p>
+      </div>
+
+      <div class="block">
+        <h3>检测可视化</h3>
+        <div class="vis-toggle">
+          <button class="vt active" data-vis="overlay">缺陷标注</button>
+          <button class="vt" data-vis="heatmap">异常热力图</button>
+        </div>
+        <div class="vis"><img id="imgVis" alt="可视化" /></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ================= 屏 2：窑温孪生 ================= -->
+<section class="screen" id="s2">
+  <div class="grid-2 wide-left">
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2>烧成曲线参数</h2>
+        <span class="hint">一维瞬态热传导 · 隐式差分</span>
+      </div>
+      <div class="sliders" id="sliders"></div>
+
+      <div class="sub-head">缺陷归因联动</div>
+      <div class="chips" id="kilnChips">
+        <button class="chip" data-dt="">无</button>
+        <button class="chip" data-dt="釉泡">釉泡</button>
+        <button class="chip" data-dt="针孔">针孔</button>
+        <button class="chip" data-dt="裂纹">裂纹</button>
+        <button class="chip" data-dt="落渣">落渣</button>
+        <button class="chip" data-dt="色差">色差</button>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn" id="btnSim">运行仿真</button>
+        <button class="btn btn-primary" id="btnOpt">智能寻优</button>
+      </div>
+      <p class="micro" id="kilnZone">窑位：未指定</p>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2>温度历程</h2>
+        <span class="hint" id="kilnHint">仿真曲线</span>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="chart" width="760" height="360"></canvas>
+        <div class="legend">
+          <span><i style="background:#f0a93b"></i>窑内气氛</span>
+          <span><i style="background:#35d0d8"></i>坯体表面</span>
+          <span><i style="background:#8f7bf0"></i>坯体中心</span>
+          <span><i class="dash" style="background:#e35d6a"></i>573℃ 石英转变</span>
+        </div>
+      </div>
+
+      <div class="kpi-row" id="kpis"></div>
+
+      <div class="opt-box" id="optBox">
+        <div class="opt-head">寻优结果</div>
+        <div class="opt-body" id="optBody">
+          <p class="micro">点击「智能寻优」，在工艺边界内搜索综合成本最低的曲线。</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ================= 屏 3：纹样生成 ================= -->
+<section class="screen" id="s3">
+  <div class="panel">
+    <div class="panel-head">
+      <h2>纹样生成与可制造性校验</h2>
+      <span class="hint">参数化纹样 · 线宽/留白/对称性闸门</span>
+    </div>
+
+    <div class="opt-bar">
+      <div class="field">
+        <label>纹样风格</label>
+        <select id="pStyle"></select>
+      </div>
+      <div class="field">
+        <label>器型</label>
+        <select id="pVessel"></select>
+      </div>
+      <div class="field narrow">
+        <label>随机种子</label>
+        <input type="number" id="pSeed" value="1" min="1" max="999" />
+      </div>
+      <button class="btn btn-primary" id="btnPattern">生成 4 款</button>
+    </div>
+
+    <div class="pat-grid" id="patGrid"></div>
+    <p class="micro">注：纹样为参数化生成，可制造性分数由线宽、覆盖率、对称性、边缘留白、套色数五项加权；接入工厂釉色与器型库后可替换为真实定稿图。</p>
+  </div>
+</section>
+
+</main>
+
+<!-- ================= 闭环演示遮罩 ================= -->
+<div class="overlay" id="loopOverlay">
+  <div class="loop-card">
+    <div class="loop-head">
+      <h2>闭环演示 · 检—诊—调—验</h2>
+      <button class="x" id="btnCloseLoop">✕</button>
+    </div>
+
+    <div class="steps" id="loopSteps">
+      <div class="step" data-i="0"><span>1</span>检测定位</div>
+      <div class="step" data-i="1"><span>2</span>窑位归因</div>
+      <div class="step" data-i="2"><span>3</span>参数寻优</div>
+      <div class="step" data-i="3"><span>4</span>首件复检</div>
+    </div>
+
+    <div class="loop-body" id="loopBody">
+      <p class="micro">正在生成缺陷样本并执行全链路…</p>
+    </div>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

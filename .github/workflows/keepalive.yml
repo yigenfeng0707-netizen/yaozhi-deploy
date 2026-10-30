@@ -1,0 +1,19 @@
+name: Keepalive ping
+
+on:
+  schedule:
+    - cron: '13,43 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping studio (browser UA)
+        run: |
+          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0 Safari/537.36"
+          curl -sS -A "$UA" -o /dev/null -w "ms.show: %{http_code}\n" --max-time 90 https://gsym236998-yaozhi-brain.ms.show/ || true
+          curl -sS -A "$UA" -o /dev/null -w "studio page: %{http_code}\n" --max-time 90 https://modelscope.cn/studios/gsym236998/yaozhi-brain || true

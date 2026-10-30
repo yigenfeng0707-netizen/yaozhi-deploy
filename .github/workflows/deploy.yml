@@ -1,0 +1,60 @@
+name: Deploy to ModelScope Studio
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "yaozhi/**"
+      - "space/**"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assemble space
+        run: |
+          mkdir -p space-build
+          cp space/Dockerfile space/README.md space-build/
+          cp -r yaozhi/. space-build/
+          rm -rf space-build/__pycache__ space-build/core/__pycache__ space-build/tools/__pycache__
+          rm -f space-build/run.bat
+          echo "--- space-build file count: $(find space-build -type f | wc -l) ---"
+
+      - name: Push to ModelScope studio repo
+        env:
+          MODELSCOPE_TOKEN: ${{ secrets.MODELSCOPE_TOKEN }}
+        run: |
+          git clone --depth 1 "https://oauth2:${MODELSCOPE_TOKEN}@www.modelscope.cn/studios/gsym236998/yaozhi-brain.git" ms-studio
+          cd ms-studio
+          git config user.email "actions@github.com"
+          git config user.name "github-actions"
+          # 只覆盖添加自己的内容，保留平台 meta/.gitattributes（不删平台文件）
+          cp -r ../space-build/. .
+          git add -A -f
+          if git diff --cached --quiet; then
+            echo "No changes to sync"
+          else
+            git commit -m "sync from GitHub $(git rev-parse --short=8 HEAD 2>/dev/null || echo manual)"
+            git push origin master
+          fi
+          REMOTE_HEAD=$(git ls-remote origin refs/heads/master | cut -f1)
+          LOCAL_HEAD=$(git rev-parse HEAD)
+          echo "remote=$REMOTE_HEAD local=$LOCAL_HEAD"
+          [ "$REMOTE_HEAD" = "$LOCAL_HEAD" ] || { echo "::error::remote HEAD mismatch (platform meta commit race), rerun workflow"; exit 1; }
+
+      - name: Trigger deploy
+        env:
+          MODELSCOPE_TOKEN: ${{ secrets.MODELSCOPE_TOKEN }}
+        run: |
+          code=$(curl -sS -o /tmp/trigger.json -w "%{http_code}" -X POST \
+            "https://modelscope.cn/openapi/v1/studios/gsym236998/yaozhi-brain/deploy" \
+            -H "Authorization: Bearer ${MODELSCOPE_TOKEN}" \
+            -H "Content-Type: application/json" -d '{}')
+          echo "trigger http=$code"; cat /tmp/trigger.json
