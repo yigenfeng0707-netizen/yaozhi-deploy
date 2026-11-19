@@ -15,6 +15,7 @@ import cv2
 import torch
 import torch.nn.functional as F
 from torchvision.models import resnet18, ResNet18_Weights
+from PIL import Image, ImageDraw, ImageFont
 
 from . import synth
 
@@ -310,8 +311,9 @@ class GlazeInspector:
             x1, y1, x2, y2 = r["bbox"]
             color = (48, 200, 255) if r["label"] != "裂纹" else (80, 80, 255)
             cv2.rectangle(overlay, (x1, y1), (x2, y2), color, 2)
-            cv2.putText(overlay, r["label"], (x1, max(18, y1 - 8)),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2, cv2.LINE_AA)
+        pil_overlay = Image.fromarray(cv2.cvtColor(overlay, cv2.COLOR_BGR2RGB))
+        _draw_labels(pil_overlay, regions)
+        overlay = cv2.cvtColor(np.array(pil_overlay), cv2.COLOR_RGB2BGR)
         vis = cv2.addWeighted(overlay, 0.75, heat, 0.25, 0)
 
         kind, cause, action = DEFECT_ADVICE.get(main, ("正常", "未见显著异常", "维持当前工艺参数"))
@@ -329,6 +331,43 @@ class GlazeInspector:
             "heatmap": _data_url(heat),
             "size": [w0, h0],
         }
+
+
+def _font_cjk(size):
+    """加载中文字体；容器（fonts-noto-cjk）与 Windows（微软雅黑/黑体）均覆盖，
+    找不到时退化为 PIL 默认拉丁字体（旧行为，中文显示为占位符）。"""
+    candidates = (
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
+        "NotoSansCJK-Regular.ttc",
+        "NotoSansCJKsc-Regular.otf",
+        "msyh.ttc", "simhei.ttf", "simsun.ttc",
+    )
+    for name in candidates:
+        try:
+            return ImageFont.truetype(name, size)
+        except OSError:
+            continue
+    return ImageFont.load_default()
+
+
+def _draw_labels(pil_img, regions):
+    """在标注图上绘制缺陷类型+置信度标签。cv2 内置字体不含汉字，故用 PIL 渲染。"""
+    size = max(14, int(max(pil_img.size) * 0.035))
+    font = _font_cjk(size)
+    draw = ImageDraw.Draw(pil_img)
+    for r in regions:
+        x1, y1 = r["bbox"][0], r["bbox"][1]
+        # cv2 标注颜色为 BGR，PIL 用 RGB
+        color = (255, 200, 48) if r["label"] != "裂纹" else (255, 80, 80)
+        label = "%s %.2f" % (r["label"], r.get("confidence", 0.99))
+        tw, th = draw.textbbox((0, 0), label, font=font)[2:]
+        pad = 3
+        tx, ty = x1, max(4, y1 - th - pad * 2)
+        draw.rectangle([tx, ty, tx + tw + pad * 2, ty + th + pad * 2],
+                       fill=(0, 0, 0))
+        draw.text((tx + pad, ty + pad), label, font=font, fill=color)
 
 
 def _data_url(img):

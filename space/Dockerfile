@@ -3,7 +3,8 @@ FROM python:3.10-slim
 WORKDIR /app
 ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
 
-RUN apt-get update && apt-get install -y --no-install-recommends libgl1 libglib2.0-0 \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgl1 libglib2.0-0 fonts-noto-cjk \
     && rm -rf /var/lib/apt/lists/*
 
 # torch/torchvision 走 CPU 源 + --no-deps（该源缺 flit_core 等构建依赖），
